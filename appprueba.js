@@ -1,1 +1,1 @@
-document.write("<h1>Hello World<h/1>");
+console.log("this a string");
