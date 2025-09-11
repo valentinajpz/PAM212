@@ -1,3 +1,4 @@
-nombredelusuario = "john";
+var nameuser = "john";
+let lastname = "carter";
 
-console.log(nombredelusuario);
+console.log(nameuser);
