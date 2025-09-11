@@ -1,3 +1,5 @@
 let names = ['ryan', 'joe', 'john'];
 
-console.log(names[0])
+for (let i = 0; 1 < names.length; i++){
+    console.log(names[i]);
+}
