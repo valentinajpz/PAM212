@@ -1,5 +1,5 @@
 let name = "John";
-let lastName = "Carter";
+let lastName = "Chavez";
 
 let completeName = name + lastName;
 
