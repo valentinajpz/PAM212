@@ -1,5 +1,5 @@
-let names = ['ryan', 'joe', 'john'];
+let names = [1,2,3];
 
-for (let i = 0; 1 < names.length; i++){
+for (let i = names.length; i >= 0; i--){
     console.log(names[i]);
 }
