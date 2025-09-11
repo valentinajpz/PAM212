@@ -1,1 +1,3 @@
-console.log({"username":"ryan", "score":70.4});
+nombredelusuario = "john";
+
+console.log(nombredelusuario);
