@@ -1,9 +1,10 @@
-var nameuser = "john";
-let lastname = "carter";
+let nomberOne = 69;
+let nomberTwo = 100;
 
-nameuser = "pepe";
+let result = nomberOne + nomberTwo;
+let result = nomberOne - nomberTwo;
+let result = nomberOne * nomberTwo;
+let result = nomberOne / nomberTwo;
 
-const PI = 3.1415
-PI = 100;
 
-console.log(PI);
+console.log(result);
