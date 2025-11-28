@@ -1,11 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
-import { 
-    View, Text, TextInput, TouchableOpacity, 
-    FlatList, StyleSheet, Alert, ActivityIndicator 
-} from 'react-native';
-import { UsuarioController } from '../controllers/UsuarioController';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+// Corrección: Importación por defecto
+import UsuarioController from '../controllers/UsuarioController'; 
 
-const controller = new UsuarioController();
+// Corrección: Usar la instancia exportada por defecto (singleton)
+const controller = UsuarioController; 
 
 export default function UsuarioView() {
 
@@ -13,6 +12,8 @@ export default function UsuarioView() {
     const [nombre, setNombre] = useState('');
     const [loading, setLoading] = useState(true);
     const [guardando, setGuardando] = useState(false);
+    const [editar, setEditar] = useState(false);
+    const [usuarioEditado, setUsuarioEditado] = useState(null);
 
     const cargarUsuarios = useCallback(async () => {
         try {
@@ -20,7 +21,7 @@ export default function UsuarioView() {
             const data = await controller.obtenerUsuarios();
             setUsuarios(data);
         } catch (error) {
-            Alert.alert("Error", error.message);
+            Alert.alert("Error de Carga", error.message);
         } finally {
             setLoading(false);
         }
@@ -28,9 +29,14 @@ export default function UsuarioView() {
 
     useEffect(() => {
         const init = async () => {
-            await controller.initialize();
-            await cargarUsuarios();
+            try {
+                await controller.initialize();
+                await cargarUsuarios();
+            } catch (error) {
+                Alert.alert("Error de Inicialización", "No se pudo conectar a la base de datos.");
+            }
         };
+        
         init();
 
         controller.addListener(cargarUsuarios);
@@ -38,20 +44,66 @@ export default function UsuarioView() {
     }, [cargarUsuarios]);
 
     const handleAgregar = async () => {
+        if (nombre.trim() === '') {
+            Alert.alert("Advertencia", "El nombre del usuario no puede estar vacío.");
+            return;
+        }
+        
         if (guardando) return;
         try {
             setGuardando(true);
             const usuarioCreado = await controller.crearUsuario(nombre);
-            Alert.alert(
-                "Usuario Creado",
-                `"${usuarioCreado.nombre}" guardado con ID: ${usuarioCreado.id}`
-            );
+            Alert.alert("Usuario Creado", `"${usuarioCreado.nombre}" guardado con ID: ${usuarioCreado.id}`);
             setNombre('');
         } catch (error) {
-            Alert.alert("Error", error.message);
+            Alert.alert("Error al Agregar", error.message);
         } finally {
             setGuardando(false);
         }
+    };
+
+    const prepararEdicion = (usuario) => {
+        setEditar(true);
+        setUsuarioEditado(usuario);
+        setNombre(usuario.nombre);
+    };
+
+    const handleEditar = async () => {
+        if (!usuarioEditado || nombre.trim() === '') return;
+
+        try {
+            setGuardando(true);
+            await controller.actualizarUsuario(usuarioEditado.id, nombre);
+            Alert.alert("Éxito", "Usuario actualizado");
+            setNombre('');
+            setEditar(false);
+            setUsuarioEditado(null);
+        } catch (err) {
+            Alert.alert("Error al Editar", err.message);
+        } finally {
+             setGuardando(false);
+        }
+    };
+
+    const handleEliminar = (id) => {
+        Alert.alert(
+            "Eliminar Usuario",
+            "¿Seguro que quieres eliminarlo?",
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Eliminar",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await controller.eliminarUsuario(id);
+                        } catch (err) {
+                            Alert.alert("Error", err.message);
+                        }
+                    }
+                }
+            ]
+        )
     };
 
     const renderUsuario = ({ item, index }) => (
@@ -71,20 +123,29 @@ export default function UsuarioView() {
                         day: 'numeric'
                     })}
                 </Text>
+
+                <View style={styles.actionRow}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => prepararEdicion(item)}>
+                        <Text style={styles.actionText}>Editar</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.deleteBtn} onPress={() => handleEliminar(item.id)}>
+                        <Text style={styles.actionText}>Eliminar</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </View>
     );
 
     return (
         <View style={styles.container}>
-
             <View style={styles.header}>
                 <Text style={styles.title}>INSERT & SELECT</Text>
-                <Text style={{ color: "#666" }}>SQLite </Text>
+                <Text style={{ color: "#666" }}>SQLite</Text>
             </View>
 
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>INSERT</Text>
+                <Text style={styles.sectionTitle}>{editar ? "EDITAR" : "INSERT"}</Text>
 
                 <TextInput
                     style={styles.input}
@@ -93,18 +154,40 @@ export default function UsuarioView() {
                     onChangeText={setNombre}
                 />
 
-                <TouchableOpacity 
-                    style={styles.btn}
-                    onPress={handleAgregar}
-                >
-                    <Text style={styles.btnText}>
-                        {guardando ? "Guardando..." : "Agregar Usuario"}
-                    </Text>
-                </TouchableOpacity>
+                {!editar ? (
+                    <TouchableOpacity 
+                        style={[styles.btn, guardando && {opacity: 0.7}]} // Estilo simple para indicar guardando
+                        onPress={handleAgregar}
+                        disabled={guardando}
+                    >
+                        <Text style={styles.btnText}>{guardando ? "Guardando..." : "Agregar Usuario"}</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View style={{ flexDirection: "row", gap: 10 }}>
+                        <TouchableOpacity 
+                            style={[styles.btn, { flex: 1 }, guardando && {opacity: 0.7}]} 
+                            onPress={handleEditar}
+                            disabled={guardando}
+                        >
+                            <Text style={styles.btnText}>Actualizar</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.cancelBtn, { flex: 1, backgroundColor: "#6c757d" }]} // Estilo añadido para Cancelar
+                            onPress={() => {
+                                setEditar(false);
+                                setUsuarioEditado(null);
+                                setNombre('');
+                            }}
+                        >
+                            <Text style={styles.btnText}>Cancelar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
 
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>SELECT</Text>
+                <Text style={styles.sectionTitle}>Usuarios Registrados</Text>
 
                 {loading ? (
                     <ActivityIndicator size="large" />
@@ -116,7 +199,6 @@ export default function UsuarioView() {
                     />
                 )}
             </View>
-
         </View>
     );
 }
@@ -170,13 +252,19 @@ const styles = StyleSheet.create({
 
     btnText: {
         color: "#fff",
-        fontSize: 16,
         fontWeight: "bold",
     },
 
+    // Añadido para que el botón Cancelar funcione con el estilo que usaste
+    cancelBtn: { 
+        padding: 12,
+        borderRadius: 8,
+        alignItems: "center",
+    }, 
+
     userItem: {
         flexDirection: "row",
-        backgroundColor: "#f2f2f2",
+        backgroundColor: "#f1f1f1",
         padding: 12,
         borderRadius: 8,
         marginBottom: 12,
@@ -186,10 +274,10 @@ const styles = StyleSheet.create({
         width: 35,
         height: 35,
         backgroundColor: "#007bff",
-        borderRadius: 20,
+        borderRadius: 25,
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 15,
+        marginRight: 12,
     },
 
     userNumberText: {
@@ -197,24 +285,30 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
     },
 
-    userInfo: {
-        flex: 1,
+    userInfo: { flex: 1 },
+
+    actionRow: {
+        flexDirection: "row",
+        marginTop: 10,
+        gap: 10,
     },
 
-    userName: {
-        fontSize: 16,
+    editBtn: {
+        backgroundColor: "#f0ad4e",
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 6,
+    },
+
+    deleteBtn: {
+        backgroundColor: "#d9534f",
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 6,
+    },
+
+    actionText: {
+        color: "#fff",
         fontWeight: "bold",
-    },
-
-    userId: {
-        color: "#333",
-        marginTop: 2,
-    },
-
-    userDate: {
-        fontSize: 12,
-        color: "#777",
-        marginTop: 2,
-    },
-
+    }
 });

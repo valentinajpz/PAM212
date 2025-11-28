@@ -1,47 +1,13 @@
 import { Usuario } from '../models/usuario';
 import DatabaseService from '../database/DatabaseService';
 
-export class UsuarioController {
+class UsuarioController {
     constructor() {
         this.listeners = [];
     }
 
     async initialize() {
         await DatabaseService.initialize();
-    }
-
-    async obtenerUsuarios() {
-        try {
-            const data = await DatabaseService.getAll();
-            return data.map(u => new Usuario(
-                u.id,
-                u.nombre,
-                u.fecha_creacion
-            ));
-        } catch (error) {
-            console.error('Error al obtener usuarios:', error);
-            throw new Error('No se pudieron cargar los usuarios');
-        }
-    }
-
-    async crearUsuario(nombre) {
-        try {
-            Usuario.validar(nombre);
-
-            const nuevoUsuario = await DatabaseService.add(nombre.trim());
-
-            this.notifyListeners();
-
-            return new Usuario(
-                nuevoUsuario.id,
-                nuevoUsuario.nombre,
-                nuevoUsuario.fecha_creacion
-            );
-
-        } catch (error) {
-            console.error('Error al crear usuario:', error);
-            throw error;
-        }
     }
 
     addListener(callback) {
@@ -55,4 +21,29 @@ export class UsuarioController {
     notifyListeners() {
         this.listeners.forEach(cb => cb());
     }
+
+    async obtenerUsuarios() {
+        const data = await DatabaseService.getAll();
+        return data.map(u => new Usuario(u.id, u.nombre, u.fecha_creacion));
+    }
+
+    async crearUsuario(nombre) {
+        Usuario.validar(nombre);
+        const nuevo = await DatabaseService.add(nombre.trim());
+        this.notifyListeners();
+        return new Usuario(nuevo.id, nuevo.nombre, nuevo.fecha_creacion);
+    }
+
+    async actualizarUsuario(id, nombre) {
+        Usuario.validar(nombre);
+        await DatabaseService.actualizar(id, nombre.trim());
+        this.notifyListeners();
+    }
+
+    async eliminarUsuario(id) {
+        await DatabaseService.eliminar(id);
+        this.notifyListeners();
+    }
 }
+
+export default new UsuarioController();
